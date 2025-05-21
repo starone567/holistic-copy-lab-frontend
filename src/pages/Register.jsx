@@ -1,67 +1,47 @@
-// src/pages/Register.jsx
-import React, { useState } from "react";
+import { useState } from "react";
 import { supabase } from "../supabaseClient";
-import { useNavigate } from "react-router-dom";
 
-export default function Register() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
-  const navigate = useNavigate();
+export default function Register({ setUser }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState(null);
 
   const handleRegister = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setMessage("");
+    setError(null);
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
     });
+
     if (error) {
-      setMessage(error.message);
+      setError(error.message);
     } else {
-      setMessage("Potvrdi svoj email za dovršetak registracije!");
-      setTimeout(() => navigate("/login"), 3500);
+      // Možeš automatski postaviti usera, ili ga preusmjeriti na login
+      setUser(data.user);
+      // localStorage.setItem('user', JSON.stringify(data.user)); // Po želji
     }
-    setLoading(false);
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[50vh] bg-gradient-to-b from-blue-50 to-white">
-      <form onSubmit={handleRegister} className="bg-white shadow-lg rounded-xl p-8 w-full max-w-md space-y-6 mt-12">
-        <h2 className="text-2xl font-bold text-center text-blue-900 mb-4">Registracija</h2>
-        {message && <div className="text-center text-sm text-red-500">{message}</div>}
-        <div>
-          <label className="block text-gray-700 font-semibold mb-1" htmlFor="email">Email</label>
-          <input
-            id="email"
-            type="email"
-            className="w-full border rounded-lg px-3 py-2"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required autoFocus
-          />
-        </div>
-        <div>
-          <label className="block text-gray-700 font-semibold mb-1" htmlFor="password">Lozinka</label>
-          <input
-            id="password"
-            type="password"
-            className="w-full border rounded-lg px-3 py-2"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-          />
-        </div>
-        <button
-          type="submit"
-          className="w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold rounded-lg py-2 transition"
-          disabled={loading}
-        >
-          {loading ? "Registriram..." : "Registriraj se"}
-        </button>
-      </form>
-    </div>
+    <form onSubmit={handleRegister}>
+      <input
+        type="email"
+        placeholder="Email"
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        required
+      />
+      <input
+        type="password"
+        placeholder="Lozinka"
+        value={password}
+        onChange={e => setPassword(e.target.value)}
+        required
+      />
+      <button type="submit">Registriraj se</button>
+      {error && <div style={{ color: 'red' }}>{error}</div>}
+    </form>
   );
 }
