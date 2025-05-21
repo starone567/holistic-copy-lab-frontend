@@ -1,33 +1,36 @@
+// File: src/App.jsx
 import React, { useState, useEffect } from "react";
-import Hero from "./components/Hero";
-import Services from "./components/Services";
-import About from "./components/About";
-import Contact from "./components/Contact";
-import Chatbot from "./components/Chatbot";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
-import Footer from "./components/Footer";
-// import Login from "./components/Login";  // <-- privremeno ne treba
-import ChangePassword from "./components/ChangePassword";
-import BuyTokens from "./components/BuyTokens";
+import Home from "./pages/Home";
+import DemoChat from "./pages/DemoChat";
+import FullChat from "./pages/FullChat";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
 
 function App() {
-  // Local user state, ali za demo ignoriramo login
-  const [user, setUser] = useState(() => {
-    const stored = localStorage.getItem("user");
-    return stored ? JSON.parse(stored) : null;
-  });
-
-  // Dodajemo demo korisnika kad nije logiran nitko
-  const demoUser = {
-    username: "demo",
-    free_quota: 5,
-    token_balance: 0,
+  const demoUser = () => {
+    const alreadyUsed = localStorage.getItem("hasUsedDemo");
+    if (alreadyUsed) {
+      return { username: "demo", free_quota: 0, token_balance: 0 };
+    } else {
+      localStorage.setItem("hasUsedDemo", "true");
+      return { username: "demo", free_quota: 5, token_balance: 0 };
+    }
   };
 
-  // Osvježava broj free_quota/token_balance nakon svakog chata/kupnje
-  async function updateUser() {}
+  const [user, setUser] = useState(() => {
+    const stored = localStorage.getItem("user");
+    return stored ? JSON.parse(stored) : demoUser();
+  });
 
-  // Odjava
+  function updateUser() {
+    const stored = localStorage.getItem("user");
+    if (stored) {
+      setUser(JSON.parse(stored));
+    }
+  }
+
   function logout() {
     setUser(null);
     localStorage.removeItem("user");
@@ -37,37 +40,17 @@ function App() {
     if (!user) localStorage.removeItem("user");
   }, [user]);
 
-  // UMJESTO: if (!user) return <Login setUser={setUser} />;
-  // Samo prikazuj sve, koristi demoUser kad nema logiranog usera
-  const currentUser = user || demoUser;
-
   return (
-    <div className="bg-gradient-to-b from-white via-gray-50 to-blue-50 min-h-screen font-sans">
-      <Navbar />
-      <div className="max-w-6xl mx-auto px-2">
-        <div className="flex justify-between items-center mt-2">
-          <div>
-            <b>Korisnik:</b> {currentUser.username} | <b>Free:</b> {currentUser.free_quota} | <b>Tokeni:</b> {currentUser.token_balance}
-          </div>
-          <div>
-            {/* Možeš sakriti Odjavu u demo-u, ili ostavi */}
-            <button className="text-blue-800 underline" onClick={logout}>Odjava</button>
-          </div>
-        </div>
-        {/* Dugme za Stripe TEST kupnju tokena */}
-        <BuyTokens user={currentUser} updateUser={updateUser} />
-        {/* Promjena lozinke */}
-        <ChangePassword user={currentUser} onLogout={logout} />
-      </div>
-      {/* Ostatak web stranice */}
-      <Hero />
-      <Services />
-      <About />
-      <Contact />
-      {/* Chatbot s prikazom stanja i automatskim refreshom */}
-      <Chatbot user={currentUser} updateUser={updateUser} />
-      <Footer />
-    </div>
+    <Router>
+      <Navbar user={user} logout={logout} />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/demo" element={<DemoChat user={user} updateUser={updateUser} />} />
+        <Route path="/chat" element={<FullChat user={user} updateUser={updateUser} />} />
+        <Route path="/login" element={<Login setUser={setUser} />} />
+        <Route path="/register" element={<Register setUser={setUser} />} />
+      </Routes>
+    </Router>
   );
 }
 
