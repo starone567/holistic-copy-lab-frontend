@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
-export default function Navbar() {
+export default function Navbar({ user, logout }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -35,6 +35,38 @@ export default function Navbar() {
           <li><Link to="/#contact">Kontakt</Link></li>
           <li><Link to="/demo">FAQ Chatbot</Link></li>
         </ul>
+
+        {/* Login/Logout blok */}
+        <div className="flex gap-3 items-center ml-6">
+          {!user ? (
+            <>
+              <Link
+                to="/login"
+                className="text-blue-900 border px-3 py-1 rounded hover:bg-blue-50 transition"
+              >
+                Prijava
+              </Link>
+              <Link
+                to="/register"
+                className="text-white bg-blue-900 px-3 py-1 rounded hover:bg-blue-800 transition"
+              >
+                Registracija
+              </Link>
+            </>
+          ) : (
+            <>
+              <span className="font-semibold text-blue-900">
+                {user.username || "Korisnik"}
+              </span>
+              <button
+                onClick={logout}
+                className="text-white bg-red-600 px-3 py-1 rounded hover:bg-red-700 transition"
+              >
+                Odjava
+              </button>
+            </>
+          )}
+        </div>
       </nav>
     </header>
   );
