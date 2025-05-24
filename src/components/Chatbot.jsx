@@ -1,34 +1,30 @@
 import React, { useState } from "react";
+import { getFaqAnswer, saveUnansweredQuestion } from "../supabaseClient";
 
 const Chatbot = ({ user, updateUser }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
+  const [lang, setLang] = useState("hr");
 
-  const isQuotaExceeded = user?.free_quota <= 0;
+  // Prikaži quota info
+  const isQuotaExceeded = user?.free_quota !== undefined && user.free_quota <= 0;
 
-  // Smanji free_quota
+  // Smanji free_quota za usera
   const reduceQuota = () => {
     if (!user) return;
-
     if (user.free_quota > 0) {
-      const updatedUser = {
-        ...user,
-        free_quota: user.free_quota - 1,
-      };
+      const updatedUser = { ...user, free_quota: user.free_quota - 1 };
       localStorage.setItem("user", JSON.stringify(updatedUser));
-      updateUser(); // poziva refresh iz App.jsx
+      updateUser();
     }
   };
 
-  // Eksport poruka u .txt
+  // Eksportiraj chat kao .txt
   const exportChat = () => {
-    if (messages.length === 0) return;
-
-    const lines = messages.map((msg) => {
-      const label = msg.sender === "user" ? "Ti" : "AI";
-      return `${label}: ${msg.text}`;
-    });
-
+    if (!messages.length) return;
+    const lines = messages.map(
+      (msg) => `${msg.sender === "user" ? "Ti" : "AI"}: ${msg.text}`
+    );
     const content = lines.join("\n\n");
     const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
     const link = document.createElement("a");
@@ -39,7 +35,7 @@ const Chatbot = ({ user, updateUser }) => {
     document.body.removeChild(link);
   };
 
-  // Slanje poruke
+  // Slanje poruke: koristi FAQ bazu + upisuje neodgovorena pitanja!
   const sendMessage = async (e) => {
     e.preventDefault();
     if (!input.trim()) return;
@@ -48,26 +44,22 @@ const Chatbot = ({ user, updateUser }) => {
     setMessages((prev) => [...prev, userMessage]);
 
     try {
-      const res = await fetch("http://localhost:3001/api/agent", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ message: input }),
-      });
+      const res = await getFaqAnswer(input, lang);
 
-      const data = await res.json();
-      const botMessage = { sender: "bot", text: data.reply };
+      // Upis u "user_questions" ako nema odgovora iz FAQ
+      if (!res.answer || res.answer.startsWith("Nažalost")) {
+        await saveUnansweredQuestion(input, lang, user?.id || null);
+      }
 
+      const botMessage = { sender: "bot", text: res.answer };
       setMessages((prev) => [...prev, botMessage]);
-      reduceQuota(); // smanji kvotu nakon odgovora
+      reduceQuota();
     } catch (err) {
       setMessages((prev) => [
         ...prev,
-        { sender: "bot", text: "⚠️ Greška u komunikaciji sa serverom." },
+        { sender: "bot", text: "⚠️ Greška u komunikaciji sa bazom." },
       ]);
     }
-
     setInput("");
   };
 
@@ -77,10 +69,24 @@ const Chatbot = ({ user, updateUser }) => {
         🤖 Chatbot / FAQ
       </h2>
 
-      {/* Info + dugmad */}
+      {/* Jezik odabir */}
+      <div className="mb-3 text-sm flex gap-4 items-center">
+        <label>Jezik:&nbsp;</label>
+        <select
+          value={lang}
+          onChange={e => setLang(e.target.value)}
+          className="border rounded px-2 py-1"
+        >
+          <option value="hr">Hrvatski</option>
+          <option value="de">Deutsch</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+
+      {/* Info o korisniku + quota + tokeni + gumbi */}
       <div className="mb-2 text-sm text-gray-700 flex justify-between items-center">
         <div>
-          <strong>Korisnik:</strong> {user?.username || "n/a"} |{" "}
+          <strong>Korisnik:</strong> {user?.username || user?.email || "n/a"} |{" "}
           <strong>Free quota:</strong> {user?.free_quota ?? "n/a"} |{" "}
           <strong>Tokeni:</strong> {user?.token_balance ?? "n/a"}
         </div>
@@ -113,10 +119,10 @@ const Chatbot = ({ user, updateUser }) => {
                 : "bg-green-100 text-left"
             }`}
           >
-            <strong>{msg.sender === "user" ? "Ti" : "AI"}:</strong> {msg.text}
+            <strong>{msg.sender === "user" ? (user?.username || "Ti") : "AI"}:</strong> {msg.text}
           </div>
         ))}
-        {messages.length === 0 && (
+        {!messages.length && (
           <p className="text-center text-gray-400">🕊️ Nema poruka.</p>
         )}
       </div>
@@ -126,7 +132,7 @@ const Chatbot = ({ user, updateUser }) => {
         <input
           type="text"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={e => setInput(e.target.value)}
           placeholder={
             isQuotaExceeded
               ? "Iskoristili ste sve besplatne poruke."
